@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Sprawdź status zgłoszenia | SkradzionePojazdy</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .status-container {
+      max-width: 600px;
+      margin: 60px auto;
+      background-color: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    .result-card {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 🔹 Pasek nawigacyjny -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-primary" href="/">SkradzionePojazdy</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/">Strona główna</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'report_create' %}">Zgłoś kradzież</a></li>
+        <li class="nav-item"><a class="nav-link active" href="{% url 'status_lookup' %}">Sprawdź status</a></li>
+
+        {% if user.is_authenticated %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'my_reports' %}">Moje zgłoszenia</a></li>
+          <li class="nav-item">
+            <form action="{% url 'logout' %}" method="post" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-link nav-link text-danger" style="padding:0; border:none; background:none;">
+                Wyloguj
+              </button>
+            </form>
+          </li>
+        {% else %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Logowanie</a></li>
+          <li class="nav-item"><a class="btn btn-primary ms-2" href="{% url 'register' %}">Rejestracja</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- 🔹 Główna zawartość -->
+<div class="status-container">
+  <h2 class="text-center mb-4 text-primary">Sprawdź status zgłoszenia</h2>
+  <p class="text-center text-muted mb-4">
+    Wpisz numer zgłoszenia, który otrzymałeś po wysłaniu formularza.
+  </p>
+
+  <form method="post" class="mb-3">
+    {% csrf_token %}
+    <div class="mb-3">
+      {{ form.ticket_number.label_tag }}
+      {{ form.ticket_number }}
+      {% for error in form.ticket_number.errors %}
+        <div class="text-danger small">{{ error }}</div>
+      {% endfor %}
+    </div>
+    <div class="d-grid">
+      <button type="submit" class="btn btn-primary btn-lg">Sprawdź status</button>
+    </div>
+  </form>
+
+  {% if report %}
+    <div class="card result-card border-primary">
+      <div class="card-header bg-primary text-white fw-bold">
+        Zgłoszenie nr {{ report.ticket_number }}
+      </div>
+      <div class="card-body">
+        <p><strong>Tablica rejestracyjna:</strong> {{ report.vehicle_plate }}</p>
+        <p><strong>Status:</strong>
+          <span class="badge
+            {% if report.status == 'MATCHED' %}bg-success
+            {% elif report.status == 'ANALYSIS' %}bg-warning text-dark
+            {% elif report.status == 'UNCERTAIN' %}bg-secondary
+            {% elif report.status == 'CLOSED' %}bg-dark
+            {% else %}bg-info text-dark{% endif %}">
+            {{ report.get_status_display }}
+          </span>
+        </p>
+        <p><strong>Data utworzenia:</strong> {{ report.created_at|date:"Y-m-d H:i" }}</p>
+
+        {% if report.description %}
+          <hr>
+          <p><strong>Opis:</strong><br>{{ report.description }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if form.errors and not report %}
+    <div class="alert alert-danger mt-3 text-center">
+      Nie znaleziono zgłoszenia o podanym numerze. Sprawdź poprawność numeru.
+    </div>
+  {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

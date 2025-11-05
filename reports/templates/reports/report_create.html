@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Zgłoszenie kradzieży pojazdu</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .form-container {
+      max-width: 700px;
+      margin: 50px auto;
+      background-color: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+    .step { display: none; }
+    .step.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .progress { height: 6px; margin-bottom: 30px; }
+    .btn { min-width: 120px; }
+    .text-danger { font-size: 0.9rem; }
+    .is-invalid { border-color: #dc3545; }
+  </style>
+</head>
+<body>
+
+<!-- 🔹 Navbar -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-primary" href="/">SkradzionePojazdy</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/">Strona główna</a></li>
+        <li class="nav-item"><a class="nav-link active" href="{% url 'report_create' %}">Zgłoś kradzież</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'status_lookup' %}">Sprawdź status</a></li>
+
+        {% if user.is_authenticated %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'my_reports' %}">Moje zgłoszenia</a></li>
+          <li class="nav-item">
+            <form action="{% url 'logout' %}" method="post" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-link nav-link text-danger" style="padding:0; border:none; background:none;">
+                Wyloguj
+              </button>
+            </form>
+          </li>
+        {% else %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Logowanie</a></li>
+          <li class="nav-item"><a class="btn btn-primary ms-2" href="{% url 'register' %}">Rejestracja</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- 🔹 Formularz -->
+<div class="form-container">
+  <h2 class="text-center mb-3">Zgłoszenie kradzieży pojazdu</h2>
+  <p class="text-center text-muted mb-4">Wypełnij wszystkie pola krok po kroku, aby przekazać zgłoszenie.</p>
+
+  <div class="progress">
+    <div class="progress-bar bg-primary" id="progressBar" role="progressbar" style="width:25%"></div>
+  </div>
+
+  <div id="formAlert" class="alert alert-danger d-none text-center">⚠️ Uzupełnij wszystkie wymagane pola w tym kroku.</div>
+
+  <form method="post" enctype="multipart/form-data" id="reportForm" novalidate>
+    {% csrf_token %}
+
+    <!-- KROK 1 -->
+    <div class="step active">
+      <h4 class="mb-3">Krok 1: Dane właściciela</h4>
+      <div class="mb-3">{{ form.owner_first_name.label_tag }} {{ form.owner_first_name }}</div>
+      <div class="mb-3">{{ form.owner_last_name.label_tag }} {{ form.owner_last_name }}</div>
+      <div class="mb-3">{{ form.owner_email.label_tag }} {{ form.owner_email }}</div>
+      <div class="mb-3">{{ form.owner_phone.label_tag }} {{ form.owner_phone }}</div>
+      <div class="mb-3">{{ form.owner_address_street.label_tag }} {{ form.owner_address_street }}</div>
+      <div class="mb-3">{{ form.owner_address_postcode.label_tag }} {{ form.owner_address_postcode }}</div>
+      <div class="mb-3">{{ form.owner_address_city.label_tag }} {{ form.owner_address_city }}</div>
+      <div class="mb-3">{{ form.emergency_contact.label_tag }} {{ form.emergency_contact }}</div>
+    </div>
+
+    <!-- KROK 2 -->
+    <div class="step">
+      <h4 class="mb-3">Krok 2: Informacje o pojeździe</h4>
+      <div class="mb-3">{{ form.vehicle_make.label_tag }} {{ form.vehicle_make }}</div>
+      <div class="mb-3">{{ form.vehicle_model.label_tag }} {{ form.vehicle_model }}</div>
+      <div class="mb-3">{{ form.production_year.label_tag }} {{ form.production_year }}</div>
+      <div class="mb-3">{{ form.vehicle_color.label_tag }} {{ form.vehicle_color }}</div>
+      <div class="mb-3">{{ form.vehicle_type.label_tag }} {{ form.vehicle_type }}</div>
+      <div class="mb-3">{{ form.vehicle_plate.label_tag }} {{ form.vehicle_plate }}</div>
+      <div class="mb-3">{{ form.vehicle_vin.label_tag }} {{ form.vehicle_vin }}</div>
+      <div class="mb-3">{{ form.engine_number.label_tag }} {{ form.engine_number }}</div>
+      <div class="mb-3">{{ form.special_marks.label_tag }} {{ form.special_marks }}</div>
+    </div>
+
+    <!-- KROK 3 -->
+    <div class="step">
+      <h4 class="mb-3">Krok 3: Szczegóły kradzieży</h4>
+      <div class="mb-3">{{ form.theft_datetime.label_tag }} {{ form.theft_datetime }}</div>
+      <div class="mb-3">{{ form.theft_place.label_tag }} {{ form.theft_place }}</div>
+      <div class="mb-3">{{ form.description.label_tag }} {{ form.description }}</div>
+      <div class="mb-3">{{ form.witness_info.label_tag }} {{ form.witness_info }}</div>
+      <div class="mb-3">{{ form.police_report_details.label_tag }} {{ form.police_report_details }}</div>
+    </div>
+
+    <!-- KROK 4 -->
+    <div class="step">
+      <h4 class="mb-3">Krok 4: Dodatkowe informacje</h4>
+      <div class="mb-3">{{ form.photo.label_tag }} {{ form.photo }}</div>
+      <div class="mb-3">{{ form.video.label_tag }} {{ form.video }}</div>
+      <div class="mb-3">{{ form.suspect_description.label_tag }} {{ form.suspect_description }}</div>
+      <div class="mb-3">{{ form.additional_notes.label_tag }} {{ form.additional_notes }}</div>
+      <div class="form-check mt-3">{{ form.formal_consent }} <label class="form-check-label">Oświadczam, że wszystkie informacje są zgodne z prawdą</label></div>
+    </div>
+
+    <!-- Nawigacja -->
+    <div class="mt-4 d-flex justify-content-between">
+      <button type="button" class="btn btn-secondary" id="prevBtn">← Wstecz</button>
+      <button type="button" class="btn btn-primary" id="nextBtn">Dalej →</button>
+      <button type="submit" class="btn btn-success d-none" id="submitBtn">Wyślij zgłoszenie</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const steps = document.querySelectorAll('.step');
+const nextBtn = document.getElementById('nextBtn');
+const prevBtn = document.getElementById('prevBtn');
+const submitBtn = document.getElementById('submitBtn');
+const progressBar = document.getElementById('progressBar');
+const alertBox = document.getElementById('formAlert');
+let currentStep = 0;
+
+// ✅ Sprawdzanie poprawności kroków
+function validateStep(stepIndex) {
+  const step = steps[stepIndex];
+  const inputs = step.querySelectorAll('input, textarea, select');
+  let valid = true;
+
+  inputs.forEach(input => {
+    const errorElement = input.nextElementSibling;
+    // usuwamy poprzedni komunikat
+    if (errorElement && errorElement.classList.contains('invalid-feedback')) {
+      errorElement.remove();
+    }
+
+    // sprawdzamy poprawność
+    if (input.required && !input.value.trim()) {
+      showError(input, 'To pole jest wymagane');
+      valid = false;
+    } else if (input.type === 'email' && !isValidEmail(input.value.trim())) {
+      showError(input, 'Podaj prawidłowy adres e-mail');
+      valid = false;
+    } else {
+      input.classList.remove('is-invalid');
+    }
+  });
+
+  return valid;
+}
+
+// ✅ Walidacja adresu e-mail
+function isValidEmail(email) {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email);
+}
+
+// ✅ Funkcja do wyświetlania błędu
+function showError(input, message) {
+  input.classList.add('is-invalid');
+  const error = document.createElement('div');
+  error.className = 'invalid-feedback';
+  error.textContent = message;
+  input.insertAdjacentElement('afterend', error);
+}
+
+// 🔹 Obsługa przycisku Dalej
+nextBtn.addEventListener('click', () => {
+  if (!validateStep(currentStep)) {
+    alertBox.classList.remove('d-none');
+    alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  alertBox.classList.add('d-none');
+  steps[currentStep].classList.remove('active');
+  currentStep++;
+  steps[currentStep].classList.add('active');
+  updateButtons();
+});
+
+// 🔹 Obsługa przycisku Wstecz
+prevBtn.addEventListener('click', () => {
+  alertBox.classList.add('d-none');
+  steps[currentStep].classList.remove('active');
+  currentStep--;
+  steps[currentStep].classList.add('active');
+  updateButtons();
+});
+
+// 🔹 Aktualizacja przycisków i paska postępu
+function updateButtons() {
+  prevBtn.style.display = currentStep === 0 ? 'none' : 'inline-block';
+  nextBtn.style.display = currentStep === steps.length - 1 ? 'none' : 'inline-block';
+  submitBtn.classList.toggle('d-none', currentStep !== steps.length - 1);
+  progressBar.style.width = ((currentStep + 1) / steps.length) * 100 + '%';
+}
+
+// 🔹 Usuwanie błędów przy wpisywaniu
+document.querySelectorAll('input, textarea').forEach(input => {
+  input.addEventListener('input', () => {
+    input.classList.remove('is-invalid');
+    const errorElement = input.nextElementSibling;
+    if (errorElement && errorElement.classList.contains('invalid-feedback')) {
+      errorElement.remove();
+    }
+  });
+});
+
+updateButtons();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

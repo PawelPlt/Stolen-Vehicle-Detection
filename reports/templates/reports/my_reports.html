@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Moje zgłoszenia</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background-color: #f8f9fa;
+      display: flex;
+      flex-direction: column;
+    }
+
+    main {
+      flex: 1;
+    }
+
+    .navbar {
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .page-header {
+      margin-top: 80px;
+      margin-bottom: 25px;
+    }
+
+    .table {
+      border-collapse: separate !important;
+      border-spacing: 0;
+      margin-bottom: 0 !important;
+    }
+
+    .table thead {
+      background-color: #1976d2;
+      color: white;
+    }
+
+    .table tbody tr:hover {
+      background-color: #f1f5fb;
+    }
+
+    .table thead th {
+      border-bottom: 2px solid #e3e6ea !important;
+    }
+
+    .table tbody tr:last-child td {
+      border-bottom: none !important;
+    }
+
+    .table-responsive {
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .badge-status {
+      font-size: 0.9rem;
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+
+    .status-NEW { background-color: #ffc107; color: #000; }
+    .status-ANALYSIS { background-color: #6c757d; color: #fff; }
+    .status-MATCHED { background-color: #198754; color: #fff; }
+    .status-UNCERTAIN { background-color: #0dcaf0; color: #000; }
+    .status-UNMATCHED { background-color: #dc3545; color: #fff; }
+    .status-CLOSED { background-color: #343a40; color: #fff; }
+
+    footer {
+      background-color: #f5f5f5;
+      padding: 20px 0;
+      text-align: center;
+      color: #6c757d;
+      border-top: 1px solid #dee2e6;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 🔹 Pasek nawigacji -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-primary" href="/">SkradzionePojazdy</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/">Strona główna</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'report_create' %}">Zgłoś kradzież</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'status_lookup' %}">Sprawdź status</a></li>
+        <li class="nav-item"><a class="nav-link active fw-semibold" href="{% url 'my_reports' %}">Moje zgłoszenia</a></li>
+
+        {% if user.is_authenticated %}
+          {% for g in user.groups.all %}
+            {% if g.name == "Funkcjonariusz" %}
+              <li class="nav-item"><a class="nav-link" href="{% url 'officer_dashboard' %}">Panel funkcjonariusza</a></li>
+            {% endif %}
+          {% endfor %}
+          <li class="nav-item">
+            <form action="{% url 'logout' %}" method="post" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-link nav-link text-danger" style="padding:0; border:none; background:none;">
+                Wyloguj
+              </button>
+            </form>
+          </li>
+        {% else %}
+          <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Logowanie</a></li>
+          <li class="nav-item"><a class="btn btn-primary ms-2" href="{% url 'register' %}">Rejestracja</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- 🔹 Główna treść -->
+<main>
+  <div class="container page-header">
+    <h2 class="fw-bold text-primary text-center mb-4">Moje zgłoszenia</h2>
+
+    {% if page.object_list %}
+      <div class="table-responsive">
+        <table class="table align-middle bg-white rounded-3 overflow-hidden mb-0">
+          <thead>
+            <tr>
+              <th>Numer zgłoszenia</th>
+              <th>Tablica</th>
+              <th>Data zgłoszenia</th>
+              <th>Status</th>
+              <th>Akcje</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for report in page %}
+            <tr>
+              <td><strong>{{ report.ticket_number }}</strong></td>
+              <td>{{ report.vehicle_plate }}</td>
+              <td>{{ report.created_at|date:"Y-m-d H:i" }}</td>
+              <td>
+                <span class="badge badge-status status-{{ report.status }}">
+                  {{ report.get_status_display }}
+                </span>
+              </td>
+              <td>
+                <a href="{% url 'report_detail' report.id %}" class="btn btn-outline-primary btn-sm">Szczegóły</a>
+                {% if report.status == "NEW" %}
+                  <a href="{% url 'report_edit' report.id %}" class="btn btn-outline-warning btn-sm">Edytuj</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if page.has_other_pages %}
+      <nav aria-label="Paginacja" class="mt-4">
+        <ul class="pagination justify-content-center">
+          {% if page.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page.previous_page_number }}">←</a></li>
+          {% endif %}
+          {% for num in page.paginator.page_range %}
+            <li class="page-item {% if page.number == num %}active{% endif %}">
+              <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+          {% endfor %}
+          {% if page.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page.next_page_number }}">→</a></li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %}
+    {% else %}
+      <div class="text-center mt-5">
+        <h5 class="text-muted">Nie masz jeszcze żadnych zgłoszeń.</h5>
+        <a href="{% url 'report_create' %}" class="btn btn-primary mt-3">➕ Utwórz nowe zgłoszenie</a>
+      </div>
+    {% endif %}
+  </div>
+</main>
+
+<!-- 🔹 Stopka -->
+<footer>
+  © 2025 SkradzionePojazdy | Projekt inżynierski – Python Django
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

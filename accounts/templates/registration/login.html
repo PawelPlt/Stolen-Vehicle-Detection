@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Logowanie | SkradzionePojazdy</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background-color: #f8f9fa;
+      display: flex;
+      flex-direction: column;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-top: 60px;
+      padding-bottom: 40px;
+    }
+
+    .login-card {
+      background: #fff;
+      padding: 40px 35px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .login-card h3 {
+      font-weight: 700;
+      color: #1976d2;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+
+    .form-control {
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .btn-primary {
+      background-color: #1976d2;
+      border-color: #1976d2;
+      border-radius: 8px;
+      padding: 10px;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background-color: #1258a5;
+    }
+
+    footer {
+      background-color: #f5f5f5;
+      padding: 20px 0;
+      text-align: center;
+      color: #6c757d;
+      border-top: 1px solid #dee2e6;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 🔹 Pasek nawigacji -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-primary" href="/">SkradzionePojazdy</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/">Strona główna</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'report_create' %}">Zgłoś kradzież</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'status_lookup' %}">Sprawdź status</a></li>
+        <li class="nav-item"><a class="btn btn-primary ms-2" href="{% url 'register' %}">Rejestracja</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- 🔹 Formularz logowania -->
+<main>
+  <div class="login-card">
+    <h3>Zaloguj się</h3>
+
+    {% if form.errors %}
+      <div class="alert alert-danger text-center">
+        ⚠️ Nieprawidłowy login lub hasło.
+      </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label for="id_username" class="form-label">Nazwa użytkownika</label>
+        {{ form.username }}
+      </div>
+
+      <div class="mb-3">
+        <label for="id_password" class="form-label">Hasło</label>
+        {{ form.password }}
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100">Zaloguj się</button>
+
+      <div class="text-center mt-3">
+        <p class="text-muted mb-0">Nie masz konta?
+          <a href="{% url 'register' %}" class="text-primary text-decoration-none">Zarejestruj się</a>
+        </p>
+      </div>
+    </form>
+  </div>
+</main>
+
+<!-- 🔹 Stopka -->
+<footer>
+  © 2025 SkradzionePojazdy | Projekt inżynierski – Python Django
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- 🔹 Dodanie klasy Bootstrap do pól formularza -->
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll("input").forEach(el => el.classList.add("form-control"));
+  });
+</script>
+</body>
+</html>
