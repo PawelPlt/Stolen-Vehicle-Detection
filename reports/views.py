@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse # Dwa pierwsze potrzebne do renderowania strony
 from .forms import ReportCreateForm, StatusLookupForm
-from .models import Report
+from .models import Report, Evidence
 from django.http import HttpResponseForbidden
 from django.contrib import messages
 from .forms import ReportStatusForm
@@ -55,15 +55,37 @@ def my_reports(request):
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import DetailView
 
-class ReportDetailView(LoginRequiredMixin, DetailView):
+class ReportDetailView(DetailView):
     model = Report
     template_name = "reports/report_detail.html"
+    context_object_name = "report"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        report = self.get_object()
+        evidences = Evidence.objects.filter(matched_report=report).order_by("-created_at")
+        context["evidences"] = evidences
+        return context
 
 # Edycja zgłoszenia tylko gdy status = NEW
+
+
+def is_officer(user):
+    return user.is_authenticated and user.groups.filter(name="Funkcjonariusz").exists()
+
 
 @login_required
 def report_edit(request, pk):
     report = get_object_or_404(Report, pk=pk)
+
+    # tylko właściciel lub funkcjonariusz
+    if not (is_officer(request.user) or report.created_by_id == request.user.id):
+        return HttpResponseForbidden("Brak uprawnień do edycji tego zgłoszenia.")
+
+    # właściciel może edytować tylko gdy NEW; funkcjonariusz zawsze
+    if not is_officer(request.user) and report.status != Report.Status.NEW:
+        messages.error(request, "Tego zgłoszenia nie można już edytować (status nie pozwala na zmiany).")
+        return redirect("report_detail", pk=report.pk)
 
     if request.method == "POST":
         form = ReportCreateForm(request.POST, request.FILES, instance=report)
@@ -77,3 +99,13 @@ def report_edit(request, pk):
         form = ReportCreateForm(instance=report)
 
     return render(request, "reports/report_edit.html", {"form": form, "report": report})
+
+
+
+def report_detail(request, pk):
+    report = get_object_or_404(Report, pk=pk)
+    evidences = Evidence.objects.filter(matched_report=report)
+    print("USER VIEW:", report.ticket_number, "=> znaleziono", evidences.count(), "dopasowań")
+    for e in evidences:
+        print("  -", e.id, e.video, e.photo, e.get_status_display())
+    return render(request, "reports/report_detail.html", {"report": report, "evidences": evidences})

@@ -1,6 +1,6 @@
 # dashboards/views.py
 from django.shortcuts import render, get_object_or_404, redirect
-from reports.models import Report
+from reports.models import Report, Evidence
 from django.contrib.auth.decorators import user_passes_test
 from django.core.paginator import Paginator
 from django.contrib import messages
@@ -49,7 +49,9 @@ def officer_dashboard(request):
 @user_passes_test(is_officer)
 def officer_report_detail(request, pk):
     report = get_object_or_404(Report, pk=pk)
-    return render(request, "dashboards/officer_report_detail.html", {"report": report})
+    evidences = Evidence.objects.filter(matched_report=report).order_by("-created_at")
+    return render(request, "dashboards/officer_report_detail.html", {"report": report, "evidences": evidences})
+
 
 
 @user_passes_test(is_officer)
@@ -75,17 +77,36 @@ from reportlab.pdfgen import canvas
 
 
 
-
+from django.conf import settings
 
 @user_passes_test(is_officer)
 def report_pdf(request, pk):
     """Generuje raport PDF ze wszystkimi danymi zgłoszenia (bez załączników)."""
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    import os
+
+    # 🔤 Ścieżka do czcionki obsługującej polskie znaki
+    font_path = "/System/Library/Fonts/Supplemental/DejaVuSans.ttf"  # macOS
+    if not os.path.exists(font_path):
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"  # Linux
+    if not os.path.exists(font_path):
+        font_path = os.path.join(settings.BASE_DIR, "static", "fonts", "DejaVuSans.ttf")
+
+    try:
+        pdfmetrics.registerFont(TTFont("DejaVuSans", font_path))
+        base_font = "DejaVuSans"
+    except Exception as e:
+        print(f"[PDF FONT ERROR] Nie udało się załadować DejaVuSans: {e}")
+        base_font = "Helvetica"
+
     try:
         report = Report.objects.get(pk=pk)
     except Report.DoesNotExist:
         raise Http404("Zgłoszenie nie istnieje")
 
-    # 📄 Przygotowanie pliku PDF
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="Raport_{report.ticket_number}.pdf"'
 
@@ -93,91 +114,67 @@ def report_pdf(request, pk):
     width, height = A4
     y = height - 2 * cm
 
-    # 🔹 Nagłówek dokumentu
-    p.setFont("Helvetica-Bold", 16)
+    # 🔹 Nagłówek
+    p.setFont(base_font, 16)
     p.drawString(2 * cm, y, f"Raport zgłoszenia {report.ticket_number}")
-    y -= 0.8 * cm
-    p.setFont("Helvetica", 11)
+    y -= 1 * cm
+    p.setFont(base_font, 11)
     p.drawString(2 * cm, y, f"Status: {report.get_status_display()}")
-    y -= 1.2 * cm
+    y -= 1.5 * cm
 
-    # 🔹 Sekcja 1 — Dane właściciela
-    p.setFont("Helvetica-Bold", 13)
-    p.drawString(2 * cm, y, "Dane właściciela:")
-    y -= 0.7 * cm
-    p.setFont("Helvetica", 10)
-    lines = [
+    def write_section(title, lines):
+        nonlocal y
+        p.setFont(base_font, 13)
+        p.drawString(2 * cm, y, title)
+        y -= 0.8 * cm
+        p.setFont(base_font, 10)
+        for line in lines:
+            p.drawString(2.5 * cm, y, line)
+            y -= 0.45 * cm
+        y -= 0.6 * cm
+
+    # Dane właściciela
+    write_section("Dane właściciela:", [
         f"Imię: {report.owner_first_name}",
         f"Nazwisko: {report.owner_last_name}",
         f"E-mail: {report.owner_email}",
         f"Telefon: {report.owner_phone or '-'}",
         f"Adres: {report.owner_address_street}, {report.owner_address_postcode} {report.owner_address_city}",
         f"Kontakt awaryjny: {report.emergency_contact or '-'}",
-    ]
-    for line in lines:
-        p.drawString(2.5 * cm, y, line)
-        y -= 0.45 * cm
+    ])
 
-    y -= 0.5 * cm
-
-    # 🔹 Sekcja 2 — Dane pojazdu
-    p.setFont("Helvetica-Bold", 13)
-    p.drawString(2 * cm, y, "Dane pojazdu:")
-    y -= 0.7 * cm
-    p.setFont("Helvetica", 10)
-    lines = [
+    # Dane pojazdu
+    write_section("Dane pojazdu:", [
         f"Marka: {report.vehicle_make}",
         f"Model: {report.vehicle_model}",
-        f"Rok produkcji: {report.production_year}",
-        f"Kolor: {report.vehicle_color}",
-        f"Typ: {report.vehicle_type}",
+        f"Rok produkcji: {report.production_year or '-'}",
+        f"Kolor: {report.vehicle_color or '-'}",
+        f"Typ: {report.vehicle_type or '-'}",
         f"Numer rejestracyjny: {report.vehicle_plate}",
-        f"Numer VIN: {report.vehicle_vin}",
-        f"Numer silnika: {report.engine_number}",
+        f"Numer VIN: {report.vehicle_vin or '-'}",
+        f"Numer silnika: {report.engine_number or '-'}",
         f"Znaki szczególne: {report.special_marks or '-'}",
-    ]
-    for line in lines:
-        p.drawString(2.5 * cm, y, line)
-        y -= 0.45 * cm
+    ])
 
-    y -= 0.5 * cm
-
-    # 🔹 Sekcja 3 — Szczegóły kradzieży
-    p.setFont("Helvetica-Bold", 13)
-    p.drawString(2 * cm, y, "Szczegóły kradzieży:")
-    y -= 0.7 * cm
-    p.setFont("Helvetica", 10)
-    lines = [
+    # Szczegóły kradzieży
+    write_section("Szczegóły kradzieży:", [
         f"Data i godzina: {report.theft_datetime.strftime('%Y-%m-%d %H:%M')}",
         f"Miejsce: {report.theft_place}",
         f"Opis: {report.description or '-'}",
         f"Świadkowie: {report.witness_info or '-'}",
         f"Zgłoszenie na policję: {report.police_report_details or '-'}",
-    ]
-    for line in lines:
-        p.drawString(2.5 * cm, y, line)
-        y -= 0.45 * cm
+    ])
 
-    y -= 0.5 * cm
-
-    # 🔹 Sekcja 4 — Dodatkowe informacje
-    p.setFont("Helvetica-Bold", 13)
-    p.drawString(2 * cm, y, "Dodatkowe informacje:")
-    y -= 0.7 * cm
-    p.setFont("Helvetica", 10)
-    lines = [
+    # Dodatkowe informacje
+    write_section("Dodatkowe informacje:", [
         f"Opis podejrzanych: {report.suspect_description or '-'}",
         f"Dodatkowe obserwacje: {report.additional_notes or '-'}",
-    ]
-    for line in lines:
-        p.drawString(2.5 * cm, y, line)
-        y -= 0.45 * cm
+    ])
 
-    # 🔹 Stopka
-    p.setFont("Helvetica-Oblique", 9)
+    # Stopka
+    p.setFont(base_font, 9)
     p.drawString(2 * cm, 1.5 * cm, "© 2025 SkradzionePojazdy – Projekt inżynierski, Python Django")
 
-    # Zakończenie
     p.showPage()
     p.save()
     return response

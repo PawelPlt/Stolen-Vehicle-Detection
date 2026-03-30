@@ -6,7 +6,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),  # dodaje ścieżki z acounts/urls
-    path("accounts/", include("django.contrib.auth.urls")),   # login, logout, reset hasła
+    #path("accounts/", include("django.contrib.auth.urls")),   # login, logout, reset hasła
     path("", include("reports.urls")),   # dodaje sciezki z reports/urls
     path("funkcjonariusz/", include("dashboards.urls")),
 

@@ -44,6 +44,8 @@
               {% endif %}
             {% endfor %}
           {% endif %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'accounts_profile' %}">Moje konto</a></li>
+
           <li class="nav-item">
             <form action="{% url 'logout' %}" method="post" style="display:inline;">
               {% csrf_token %}
@@ -113,7 +115,7 @@
 
     <div class="d-flex justify-content-between mt-4">
       <a href="{% url 'report_detail' report.id %}" class="btn btn-secondary">← Anuluj</a>
-      <button type="submit" class="btn btn-success">💾 Zapisz zmiany</button>
+      <button type="submit" class="btn btn-success">Zapisz zmiany</button>
     </div>
   </form>
 </div>

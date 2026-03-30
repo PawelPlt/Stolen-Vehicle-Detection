@@ -1,21 +1,26 @@
+import os
+import sys
+import time
+import json
+import uuid
+from difflib import SequenceMatcher
+from typing import Optional, Tuple
+
 from django.db import models
 from django.contrib.auth import get_user_model
-import uuid
-import time
-from difflib import SequenceMatcher
 from django.core.mail import send_mail
 from django.conf import settings
-import os
 
-# 🧠 Moduł OCR
+# 🧠 OCR (tylko dla Evidence)
 from ai.ocr import extract_license_plate, extract_from_video
 
 User = get_user_model()
 
 
 class Report(models.Model):
-    """Model przechowujący zgłoszenia o skradzionych pojazdach."""
-
+    class Meta:
+        verbose_name = "Zgłoszenie"
+        verbose_name_plural = "Zgłoszenia"
     class Status(models.TextChoices):
         NEW = "NEW", "Oczekujące"
         ANALYSIS = "ANALYSIS", "W trakcie analizy"
@@ -27,7 +32,7 @@ class Report(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     ticket_number = models.CharField(max_length=20, unique=True, editable=False)
 
-    # 👤 Dane właściciela
+    # Dane właściciela
     owner_first_name = models.CharField(max_length=50)
     owner_last_name = models.CharField(max_length=80)
     owner_email = models.EmailField()
@@ -37,7 +42,7 @@ class Report(models.Model):
     owner_address_postcode = models.CharField(max_length=10, blank=True)
     emergency_contact = models.CharField(max_length=100, blank=True)
 
-    # 🚗 Dane pojazdu
+    # Dane pojazdu
     vehicle_make = models.CharField(max_length=50, blank=True)
     vehicle_model = models.CharField(max_length=50, blank=True)
     production_year = models.PositiveIntegerField(blank=True, null=True)
@@ -48,161 +53,60 @@ class Report(models.Model):
     engine_number = models.CharField(max_length=50, blank=True)
     special_marks = models.TextField(blank=True)
 
-    # 📅 Okoliczności kradzieży
+    # Okoliczności kradzieży
     theft_datetime = models.DateTimeField()
     theft_place = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     witness_info = models.TextField(blank=True)
     police_report_details = models.TextField(blank=True)
 
-    # 📷 Pliki
+    # Pliki
     photo = models.ImageField(upload_to="reports_photos/", blank=True, null=True)
     video = models.FileField(upload_to="reports_videos/", blank=True, null=True)
 
-    # 🧾 Dodatkowe informacje
+    # Dodatkowe informacje
     suspect_description = models.TextField(blank=True)
     additional_notes = models.TextField(blank=True)
     formal_consent = models.BooleanField(default=False)
 
-    # 🧠 Wykryta przez AI tablica
+    # Wykryta tablica
     vehicle_plate_detected = models.CharField(max_length=16, blank=True, null=True)
 
-    # ⚙️ Status i metadane
+    # Status i metadane
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.NEW)
-    created_by = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="reports"
-    )
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="reports")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def delete_old_files(self):
-        """Usuwa stare pliki zdjęć/wideo z dysku, jeśli nie są już powiązane z obiektem."""
+        """Usuwa pliki photo/video z dysku, gdy raport jest usuwany."""
         for field in ["photo", "video"]:
             file_field = getattr(self, field)
-            if file_field and os.path.isfile(file_field.path):
+            if file_field and file_field.name and os.path.isfile(file_field.path):
                 try:
                     os.remove(file_field.path)
                     print(f"[CLEANUP] Usunięto plik: {file_field.path}")
                 except Exception as e:
-                    print(f"[CLEANUP ERROR] Nie udało się usunąć {file_field.path}: {e}")
-
-    def normalize_plate(self, plate: str):
-        """Usuwa spacje, myślniki i zmienia litery na wielkie."""
-        return plate.replace(" ", "").replace("-", "").upper() if plate else ""
+                    print(f"[CLEANUP ERROR] {e}")
 
     def delete(self, *args, **kwargs):
-        """Usuwa powiązane pliki z dysku przy kasowaniu raportu."""
         self.delete_old_files()
         super().delete(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-        """Nadpisana metoda save() — analizuje plik i ustala status zgodności tablic."""
         is_new = self._state.adding
-        old_photo, old_video, old_status = None, None, None
 
-        if not is_new:
-            old = Report.objects.filter(pk=self.pk).first()
-            if old:
-                old_photo = old.photo
-                old_video = old.video
-                old_status = old.status
-
-        # 🧹 Usuwanie starego pliku, jeśli admin kliknął "Clear"
-        if not self.photo and old_photo:
-            if old_photo and os.path.isfile(old_photo.path):
-                try:
-                    os.remove(old_photo.path)
-                    print(f"[CLEANUP] Usunięto stare zdjęcie: {old_photo.path}")
-                except Exception as e:
-                    print(f"[CLEANUP ERROR] {e}")
-
-        if not self.video and old_video:
-            if old_video and os.path.isfile(old_video.path):
-                try:
-                    os.remove(old_video.path)
-                    print(f"[CLEANUP] Usunięto stary film: {old_video.path}")
-                except Exception as e:
-                    print(f"[CLEANUP ERROR] {e}")
-
-        # 🆕 Numer zgłoszenia
         if not self.ticket_number:
             base = str(uuid.uuid4())[:6].upper()
             self.ticket_number = f"SC-{base}"
 
+        old_status = None
+        if not is_new:
+            old_status = Report.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+
         super().save(*args, **kwargs)
 
-        # 🔄 Analiza tylko przy nowym pliku
-        if is_new or (self.photo and self.photo != old_photo) or (self.video and self.video != old_video):
-            print("[AI] Uruchamianie analizy OCR...")
-            start = time.time()
-
-            self.status = Report.Status.ANALYSIS
-            super().save(update_fields=["status"])
-
-            try:
-                detected_plate = None
-                detected_plates = []
-
-                # 🧠 Analiza zdjęcia lub filmu
-                if self.photo:
-                    detected_plate = extract_license_plate(self.photo.path)
-                elif self.video:
-                    detected_plates = extract_from_video(self.video.path) or []
-
-                similarity = 0.0
-
-                # 🎥 Jeśli film — sprawdź wszystkie wykryte tablice
-                if detected_plates:
-                    best_match = None
-                    best_ratio = 0.0
-                    for plate in detected_plates:
-                        p1 = self.normalize_plate(self.vehicle_plate)
-                        p2 = self.normalize_plate(plate)
-                        ratio = SequenceMatcher(None, p1, p2).ratio()
-                        print(f"[AI] 🔍 Porównanie {p1} ↔ {p2} → {ratio*100:.1f}%")
-                        if ratio > best_ratio:
-                            best_ratio = ratio
-                            best_match = plate
-
-                    detected_plate = best_match
-                    similarity = best_ratio * 100
-                    print(f"[AI] 📊 Najlepsze dopasowanie: {detected_plate} ({similarity:.1f}%)")
-
-                # 🖼️ Jeśli zdjęcie — standardowa analiza
-                elif detected_plate:
-                    p1 = self.normalize_plate(self.vehicle_plate)
-                    p2 = self.normalize_plate(detected_plate)
-                    ratio = SequenceMatcher(None, p1, p2).ratio()
-                    similarity = ratio * 100
-                    print(f"[AI] 📊 Zgodność OCR z tablicą właściciela: {similarity:.1f}%")
-
-                if detected_plate:
-                    self.vehicle_plate_detected = detected_plate
-
-                    if similarity == 100:
-                        self.status = Report.Status.MATCHED
-                        print("[AI] ✅ Pełne dopasowanie tablicy.")
-                    elif similarity >= 70:
-                        self.status = Report.Status.UNCERTAIN
-                        print("[AI] ⚠️ Tablica podobna, ale nie w 100%.")
-                    else:
-                        self.status = Report.Status.UNMATCHED
-                        print("[AI] ❌ Tablica różni się zbyt mocno, ale zapisano wykryty numer.")
-                else:
-                    print("[AI] OCR nie rozpoznał żadnej tablicy.")
-                    self.status = Report.Status.UNMATCHED
-
-                # 💾 Zapisanie wykrytego numeru i statusu
-                super().save(update_fields=["vehicle_plate_detected", "status"])
-
-                duration = (time.time() - start) * 1000
-                print(f"[AI] Analiza zakończona w {duration:.0f} ms")
-
-            except Exception as e:
-                print(f"[AI ERROR] {e}")
-                self.status = Report.Status.UNMATCHED
-                super().save(update_fields=["status"])
-
-        # ✉️ Wysyłanie maila przy nowym zgłoszeniu lub zmianie statusu
+        subject = None
+        message = None
         if is_new:
             subject = f"Potwierdzenie zgłoszenia {self.ticket_number}"
             message = (
@@ -218,22 +122,193 @@ class Report(models.Model):
                 f"Nowy status: {self.get_status_display()}\n\n"
                 f"Zespół SkradzionePojazdy"
             )
-        else:
-            subject = None
-            message = None
 
         if subject:
             try:
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[self.owner_email],
-                    fail_silently=False,
-                )
+                send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [self.owner_email])
                 print(f"[MAIL] Wysłano powiadomienie: {subject}")
             except Exception as e:
                 print(f"[MAIL ERROR] {e}")
 
     def __str__(self):
         return f"{self.ticket_number} ({self.vehicle_plate})"
+
+
+class Evidence(models.Model):
+    class Meta:
+        verbose_name = "Dowód"
+        verbose_name_plural = "Dowody"
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "W kolejce"
+        MATCHED = "MATCHED", "Dopasowano"
+        UNCERTAIN = "UNCERTAIN", "Niepewne"
+        UNMATCHED = "UNMATCHED", "Brak dopasowania"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    photo = models.ImageField(upload_to="evidence/photos/", blank=True, null=True)
+    video = models.FileField(upload_to="evidence/videos/", blank=True, null=True)
+    detected_plates_json = models.TextField(blank=True)
+    matched_report = models.ForeignKey("Report", null=True, blank=True, on_delete=models.SET_NULL, related_name="evidences")
+    match_confidence = models.FloatField(default=0.0)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="evidences")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @staticmethod
+    def _normalize(plate: str) -> str:
+        return plate.replace(" ", "").replace("-", "").upper() if plate else ""
+
+    def _run_ocr(self) -> list[str]:
+        start = time.time()
+        detected = []
+        try:
+            if self.photo and self.photo.name:
+                print("[OCR] Analiza zdjęcia...")
+                result = extract_license_plate(self.photo.path)
+                if result:
+                    print(f"[OCR] Wykryto tablicę: {result}")
+                    detected.append(result)
+                else:
+                    print("[OCR] YOLO nie wykrył tablicy.")
+            elif self.video and self.video.name:
+                print("[OCR] Analiza wideo...")
+                detected = extract_from_video(self.video.path) or []
+                for idx, plate in enumerate(detected):
+                    print(f"[OCR] {idx * 0.5:.2f}s → Wykryto tablicę: {plate}")
+        except Exception as e:
+            print(f"[EVIDENCE OCR ERROR] {e}")
+
+        if detected:
+            print("\n[OCR] Wykryte tablice:")
+            for p in detected:
+                print(f"   • {p}")
+            print(f"\n[OCR] Łącznie różnych tablic: {len(set(detected))}")
+        else:
+            print("[OCR] Nie wykryto żadnych tablic.")
+
+        end = time.time()
+        print(f"[OCR] Analiza zakończona w {(end - start):.2f}s\n")
+        return detected
+
+    def _find_best_match(self, plates: list[str]) -> Tuple[Optional["Report"], Optional[str], float]:
+        if not plates:
+            return None, None, 0.0
+
+        candidates = list(Report.objects.exclude(status=Report.Status.CLOSED))
+        if not candidates:
+            return None, None, 0.0
+
+        norm_map = [(r, self._normalize(r.vehicle_plate)) for r in candidates] # Normalizujemy tablice raportów
+        for p in plates: # Najpierw szukamy idealnego dopasowania
+            np = self._normalize(p) # Normalizujemy wykrytą tablicę
+            for r, rv in norm_map: # Porównujemy z normalizowanymi tablicami raportów
+                if rv == np: # Idealne dopasowanie
+                    return r, p, 100.0 # Zwracamy raport, tablicę i 100% pewności
+
+        best = (None, None, 0.0) # Szukamy najlepszego dopasowania z pewnością poniżej 100%
+        for p in plates: # Dla każdej wykrytej tablicy
+            np = self._normalize(p) # Normalizujemy tablicę
+            for r, rv in norm_map: # Porównujemy z normalizowanymi tablicami raportów
+                ratio = SequenceMatcher(None, rv, np).ratio() # Obliczamy podobieństwo
+                if ratio > best[2]: # Jeżeli to najlepsze dopasowanie jak dotąd
+                    best = (r, p, ratio * 100.0) # Aktualizujemy najlepsze dopasowanie
+        return best if best[2] >= 70 else (None, None, 0.0) # Zwracamy tylko jeśli pewność >= 70%
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+
+        if is_new or (self.photo or self.video):
+            print("[EVIDENCE] Uruchamianie OCR i dopasowania...")
+            plates = self._run_ocr()
+            self.detected_plates_json = json.dumps(plates, ensure_ascii=False)
+
+            report, plate, conf = self._find_best_match(plates)
+
+            if report and conf == 100.0:
+                self.matched_report = report
+                self.match_confidence = conf
+                self.status = self.Status.MATCHED
+                report.vehicle_plate_detected = plate
+                report.status = Report.Status.MATCHED
+                report.save(update_fields=["vehicle_plate_detected", "status"])
+                print(f"[OCR] Tablica {plate} dopasowana do {report.ticket_number}")
+            elif report and conf >= 70.0:
+                self.matched_report = report
+                self.match_confidence = conf
+                self.status = self.Status.UNCERTAIN
+                report.vehicle_plate_detected = plate
+                report.status = Report.Status.UNCERTAIN
+                report.save(update_fields=["vehicle_plate_detected", "status"])
+                print(f"[OCR] Tablica {plate} częściowo dopasowana do {report.ticket_number}")
+            else:
+                self.status = self.Status.UNMATCHED
+                print("[OCR] Brak dopasowania.")
+
+            super().save(update_fields=["detected_plates_json", "matched_report", "match_confidence", "status"])
+
+    def __str__(self):
+        kind = "foto" if self.photo else "video" if self.video else "plik"
+        return f"Evidence {self.id} ({kind})"
+
+
+# CZYSZCZENIE STARYCH PLIKÓW -------------------------------------
+from django.db.models.signals import post_delete, pre_save
+from django.dispatch import receiver
+
+
+@receiver(post_delete, sender=Evidence)
+def delete_evidence_files(sender, instance, **kwargs):
+    """Usuwa pliki z dysku po usunięciu rekordu Evidence."""
+    for field_name in ['photo', 'video']:
+        file_field = getattr(instance, field_name)
+        if file_field and file_field.name and os.path.isfile(file_field.path):
+            try:
+                os.remove(file_field.path)
+                print(f"🗑️ Usunięto plik: {file_field.path}")
+            except Exception as e:
+                print(f"⚠️ Nie udało się usunąć {file_field.path}: {e}")
+
+
+@receiver(pre_save, sender=Evidence)
+def delete_old_evidence_files_on_change(sender, instance, **kwargs):
+    """Usuwa stary plik, jeśli admin kliknął 'Clear' lub zmienił plik."""
+    if not instance.pk:
+        return
+    try:
+        old_instance = Evidence.objects.get(pk=instance.pk)
+    except Evidence.DoesNotExist:
+        return
+    for field_name in ['photo', 'video']:
+        old_file = getattr(old_instance, field_name)
+        new_file = getattr(instance, field_name)
+        if old_file and old_file.name:
+            if not new_file or old_file.name != new_file.name:
+                if os.path.isfile(old_file.path):
+                    try:
+                        os.remove(old_file.path)
+                        print(f"🧹 Usunięto stary plik (Evidence): {old_file.path}")
+                    except Exception as e:
+                        print(f"⚠️ Błąd przy czyszczeniu {old_file.path}: {e}")
+
+
+@receiver(pre_save, sender=Report)
+def delete_old_report_files_on_change(sender, instance, **kwargs):
+    """Usuwa pliki zdjęć/wideo z raportu, gdy są czyszczone lub podmieniane."""
+    if not instance.pk:
+        return
+    try:
+        old_instance = Report.objects.get(pk=instance.pk)
+    except Report.DoesNotExist:
+        return
+    for field_name in ['photo', 'video']:
+        old_file = getattr(old_instance, field_name)
+        new_file = getattr(instance, field_name)
+        if old_file and old_file.name:
+            if not new_file or old_file.name != new_file.name:
+                if os.path.isfile(old_file.path):
+                    try:
+                        os.remove(old_file.path)
+                        print(f"🧹 Usunięto stary plik (Report): {old_file.path}")
+                    except Exception as e:
+                        print(f"⚠️ Błąd przy czyszczeniu {old_file.path}: {e}")

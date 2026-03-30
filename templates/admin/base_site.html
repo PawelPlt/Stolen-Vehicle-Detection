@@ -1,0 +1,19 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}SkradzionePojazdy | Panel administracyjny{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+  <a href="{% url 'admin:index' %}" style="color: #fff; text-decoration: none;">
+    SkradzionePojazdy
+  </a>
+</h1>
+{% endblock %}
+
+
+{% block footer %}
+  <div style="text-align:center; padding:12px; font-size:0.9rem; color:#999; border-top:1px solid #e0e0e0;">
+    © 2025 SkradzionePojazdy | Projekt inżynierski – Python Django
+  </div>
+{% endblock %}

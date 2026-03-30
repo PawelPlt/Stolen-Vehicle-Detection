@@ -1,11 +1,11 @@
-from django import forms  # zestaw klas do tworzenia formularzy
-from .models import Report  # importuje moją bazę, żeby na niej bazować
+from django import forms
+from .models import Report
 
 
 # Formularz zgłoszeniowy (czterostopniowy)
-class ReportCreateForm(forms.ModelForm):  # Formularz tworzę
+class ReportCreateForm(forms.ModelForm):
     class Meta:
-        model = Report  # ten formularz ma być powiązany z Report, które stworzyłem wcześniej
+        model = Report
         fields = [
             # Dane osobowe właściciela
             "owner_first_name", "owner_last_name", "owner_email", "owner_phone",
@@ -59,7 +59,15 @@ class ReportCreateForm(forms.ModelForm):  # Formularz tworzę
         }
 
         widgets = {
-            "theft_datetime": forms.DateTimeInput(attrs={"type": "datetime-local", "class": "form-control"}),
+            #  Czysty datetime-local, który pozwala ręcznie ustawić datę i godzinę
+            "theft_datetime": forms.DateTimeInput(
+                attrs={
+                    "type": "datetime-local",
+                    "class": "form-control",
+                    "step": "60",  # zmiana co 1 minutę
+                },
+                format="%Y-%m-%dT%H:%M",
+            ),
             "description": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
             "witness_info": forms.Textarea(attrs={"rows": 2, "class": "form-control"}),
             "police_report_details": forms.Textarea(attrs={"rows": 2, "class": "form-control"}),
@@ -68,8 +76,11 @@ class ReportCreateForm(forms.ModelForm):  # Formularz tworzę
             "additional_notes": forms.Textarea(attrs={"rows": 2, "class": "form-control"}),
         }
 
+    # Zostawiamy czysty konstruktor — nic nie nadpisuje pola daty
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     def clean_vehicle_plate(self):
-        # Automatycznie zamienia tablicę rejestracyjną na wielkie litery
         plate = self.cleaned_data["vehicle_plate"].strip().upper()
         return plate
 

@@ -5,74 +5,23 @@
   <title>Szczegóły zgłoszenia {{ report.ticket_number }}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      font-family: "Segoe UI", Arial, sans-serif;
-      background-color: #f8f9fa;
-    }
-
-    main {
-      flex: 1;
-    }
-
-    .navbar {
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    }
-
-    .card {
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      background: #fff;
-      padding: 25px;
-    }
-
-    .badge-status {
-      font-size: 0.9rem;
-      padding: 6px 10px;
-      border-radius: 8px;
-    }
-
+    html, body { height: 100%; margin: 0; display: flex; flex-direction: column; font-family: "Segoe UI", Arial, sans-serif; background-color: #f8f9fa; }
+    main { flex: 1; }
+    .navbar { box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .card { border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); background: #fff; padding: 25px; }
+    .badge-status { font-size: 0.9rem; padding: 6px 10px; border-radius: 8px; }
     .status-NEW { background-color: #ffc107; color: #000; }
     .status-ANALYSIS { background-color: #6c757d; color: #fff; }
     .status-MATCHED { background-color: #198754; color: #fff; }
     .status-UNCERTAIN { background-color: #0dcaf0; color: #000; }
     .status-UNMATCHED { background-color: #dc3545; color: #fff; }
     .status-CLOSED { background-color: #343a40; color: #fff; }
-
-    .section-header {
-      border-bottom: 2px solid #e0e0e0;
-      padding-bottom: 5px;
-      margin-top: 25px;
-      margin-bottom: 15px;
-      color: #1976d2;
-      font-weight: 600;
-    }
-
-    footer {
-      background-color: #f5f5f5;
-      padding: 20px 0;
-      text-align: center;
-      color: #6c757d;
-      border-top: 1px solid #dee2e6;
-      margin-top: auto;
-    }
-
-    .info-label {
-      font-weight: 600;
-      color: #333;
-    }
-
-    .info-value {
-      color: #555;
-    }
+    .section-header { border-bottom: 2px solid #e0e0e0; padding-bottom: 5px; margin-top: 25px; margin-bottom: 15px; color: #1976d2; font-weight: 600; }
+    footer { background-color: #f5f5f5; padding: 20px 0; text-align: center; color: #6c757d; border-top: 1px solid #dee2e6; margin-top: auto; }
   </style>
 </head>
 <body>
 
-<!-- 🔹 Navbar -->
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
   <div class="container">
     <a class="navbar-brand fw-bold text-primary" href="/">SkradzionePojazdy</a>
@@ -82,16 +31,12 @@
     <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
       <ul class="navbar-nav">
         <li class="nav-item"><a class="nav-link" href="/">Strona główna</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'report_create' %}">Zgłoś kradzież</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'status_lookup' %}">Sprawdź status</a></li>
-        <li class="nav-item"><a class="nav-link" href="{% url 'my_reports' %}">Moje zgłoszenia</a></li>
-        <li class="nav-item"><a class="nav-link active fw-semibold" href="{% url 'officer_dashboard' %}">Panel funkcjonariusza</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'officer_dashboard' %}">Panel funkcjonariusza</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'accounts_profile' %}">Moje konto</a></li>
         <li class="nav-item">
           <form action="{% url 'logout' %}" method="post" style="display:inline;">
             {% csrf_token %}
-            <button type="submit" class="btn btn-link nav-link text-danger" style="padding:0; border:none; background:none;">
-              Wyloguj
-            </button>
+            <button type="submit" class="btn btn-link nav-link text-danger" style="padding:0; border:none; background:none;">Wyloguj</button>
           </form>
         </li>
       </ul>
@@ -99,7 +44,6 @@
   </div>
 </nav>
 
-<!-- 🔹 Treść -->
 <main>
   <div class="container mt-5 pt-4">
     <div class="card mt-4">
@@ -107,90 +51,61 @@
         <h3 class="fw-bold text-primary text-center mb-3">Zgłoszenie {{ report.ticket_number }}</h3>
 
         <div class="text-center mb-4">
-          <span class="badge badge-status status-{{ report.status }}">
-            {{ report.get_status_display }}
-          </span>
+          <span class="badge badge-status status-{{ report.status }}">{{ report.get_status_display }}</span>
         </div>
 
-        <!-- 🔸 Dane właściciela -->
+        <!-- Dane właściciela -->
         <h5 class="section-header">Dane właściciela</h5>
-        <div class="row">
-          <div class="col-md-6"><p><span class="info-label">Imię:</span> <span class="info-value">{{ report.owner_first_name }}</span></p></div>
-          <div class="col-md-6"><p><span class="info-label">Nazwisko:</span> <span class="info-value">{{ report.owner_last_name }}</span></p></div>
-          <div class="col-md-6"><p><span class="info-label">E-mail:</span> <span class="info-value">{{ report.owner_email }}</span></p></div>
-          <div class="col-md-6"><p><span class="info-label">Telefon:</span> <span class="info-value">{{ report.owner_phone|default:"(brak)" }}</span></p></div>
-          <div class="col-md-12"><p><span class="info-label">Adres:</span> <span class="info-value">{{ report.owner_address_street }}, {{ report.owner_address_postcode }} {{ report.owner_address_city }}</span></p></div>
-          <div class="col-md-12"><p><span class="info-label">Kontakt awaryjny:</span> <span class="info-value">{{ report.emergency_contact|default:"(brak)" }}</span></p></div>
-        </div>
+        <p><strong>Imię i nazwisko:</strong> {{ report.owner_first_name }} {{ report.owner_last_name }}</p>
+        <p><strong>Email:</strong> {{ report.owner_email }}</p>
+        <p><strong>Telefon:</strong> {{ report.owner_phone|default:"(brak)" }}</p>
 
-        <!-- 🔸 Dane pojazdu -->
+        <!-- Dane pojazdu -->
         <h5 class="section-header">Dane pojazdu</h5>
-        <div class="row">
-          <div class="col-md-4"><p><span class="info-label">Marka:</span> <span class="info-value">{{ report.vehicle_make }}</span></p></div>
-          <div class="col-md-4"><p><span class="info-label">Model:</span> <span class="info-value">{{ report.vehicle_model }}</span></p></div>
-          <div class="col-md-4"><p><span class="info-label">Rok produkcji:</span> <span class="info-value">{{ report.production_year }}</span></p></div>
-          <div class="col-md-4"><p><span class="info-label">Kolor:</span> <span class="info-value">{{ report.vehicle_color }}</span></p></div>
-          <div class="col-md-4"><p><span class="info-label">Typ:</span> <span class="info-value">{{ report.vehicle_type }}</span></p></div>
-          <div class="col-md-4"><p><span class="info-label">Numer rejestracyjny:</span> <span class="info-value">{{ report.vehicle_plate }}</span></p></div>
-          <div class="col-md-4"><p><span class="info-label">Numer VIN:</span> <span class="info-value">{{ report.vehicle_vin }}</span></p></div>
-          <div class="col-md-4"><p><span class="info-label">Numer silnika:</span> <span class="info-value">{{ report.engine_number }}</span></p></div>
-          <div class="col-md-12"><p><span class="info-label">Znaki szczególne:</span> <span class="info-value">{{ report.special_marks|default:"(brak)" }}</span></p></div>
-        </div>
+        <p><strong>Marka:</strong> {{ report.vehicle_make }}</p>
+        <p><strong>Model:</strong> {{ report.vehicle_model }}</p>
+        <p><strong>Tablica:</strong> {{ report.vehicle_plate }}</p>
 
-        <!-- 🔸 Szczegóły kradzieży -->
-        <h5 class="section-header">Szczegóły kradzieży</h5>
-        <div class="row">
-          <div class="col-md-6"><p><span class="info-label">Data i godzina:</span> <span class="info-value">{{ report.theft_datetime|date:"Y-m-d H:i" }}</span></p></div>
-          <div class="col-md-6"><p><span class="info-label">Miejsce kradzieży:</span> <span class="info-value">{{ report.theft_place }}</span></p></div>
-          <div class="col-md-12"><p><span class="info-label">Okoliczności:</span> <span class="info-value">{{ report.description|default:"(brak opisu)" }}</span></p></div>
-          <div class="col-md-12"><p><span class="info-label">Świadkowie:</span> <span class="info-value">{{ report.witness_info|default:"(brak informacji)" }}</span></p></div>
-          <div class="col-md-12"><p><span class="info-label">Zgłoszenie na policję:</span> <span class="info-value">{{ report.police_report_details|default:"(brak danych)" }}</span></p></div>
-        </div>
-
-        <!-- 🔸 Dodatkowe informacje -->
-        <h5 class="section-header">Dodatkowe informacje</h5>
-        <div class="row">
-          <div class="col-md-12"><p><span class="info-label">Opis podejrzanych:</span> <span class="info-value">{{ report.suspect_description|default:"(brak)" }}</span></p></div>
-          <div class="col-md-12"><p><span class="info-label">Dodatkowe obserwacje:</span> <span class="info-value">{{ report.additional_notes|default:"(brak)" }}</span></p></div>
-        </div>
-
-        <!-- 🔸 Pliki -->
+        <!-- Materiały -->
         {% if report.photo or report.video %}
-        <h5 class="section-header">Załączone materiały</h5>
-        <div class="row">
+          <h5 class="section-header">Załączone materiały</h5>
           {% if report.photo %}
-            <div class="col-md-6 mb-3">
-              <p><b>Zdjęcie pojazdu:</b></p>
-              <img src="{{ report.photo.url }}" alt="Zdjęcie pojazdu" class="img-fluid rounded shadow-sm" style="max-width:100%;">
-            </div>
+            <p><strong>Zdjęcie:</strong><br><img src="{{ report.photo.url }}" class="img-fluid rounded shadow-sm" style="max-width:400px;"></p>
           {% endif %}
           {% if report.video %}
-            <div class="col-md-6 mb-3">
-              <p><b>Wideo:</b></p>
-              <video controls class="rounded shadow-sm" style="width:100%; max-width:400px;">
-                <source src="{{ report.video.url }}" type="video/mp4">
-                Twoja przeglądarka nie obsługuje wideo.
-              </video>
-            </div>
+            <p><strong>Wideo:</strong><br><video controls style="max-width:400px;"><source src="{{ report.video.url }}" type="video/mp4"></video></p>
           {% endif %}
-        </div>
         {% endif %}
 
-        <!-- 🔸 Akcje -->
+        <!-- Materiały dopasowane przez AI -->
+        <h5 class="section-header">Materiały dopasowane przez AI</h5>
+        {% if evidences %}
+          {% for e in evidences %}
+            <div class="border rounded p-3 mb-3 bg-white shadow-sm">
+              <p><strong>Status:</strong> {{ e.get_status_display }} ({{ e.match_confidence|floatformat:1 }}%)</p>
+              <p><strong>Tablice:</strong> {{ e.detected_plates_json }}</p>
+              {% if e.photo %}
+                <img src="{{ e.photo.url }}" class="img-fluid rounded mb-2" style="max-width:400px;">
+              {% endif %}
+              {% if e.video %}
+                <video controls style="max-width:400px;"><source src="{{ e.video.url }}" type="video/mp4"></video>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted">(brak materiałów AI)</p>
+        {% endif %}
+
         <div class="text-center mt-4">
           <a href="{% url 'officer_report_status_update' report.id %}" class="btn btn-primary me-2">Zmień status</a>
           <a href="{% url 'report_pdf' report.id %}" class="btn btn-outline-secondary me-2">Pobierz PDF</a>
           <a href="{% url 'officer_dashboard' %}" class="btn btn-secondary">Powrót</a>
         </div>
-
-      {% else %}
-        <p class="text-danger text-center">Nie znaleziono szczegółów zgłoszenia.</p>
       {% endif %}
     </div>
   </div>
 </main>
 
-<!-- 🔹 Stopka -->
 <footer>
   © 2025 SkradzionePojazdy | Projekt inżynierski – Python Django
 </footer>

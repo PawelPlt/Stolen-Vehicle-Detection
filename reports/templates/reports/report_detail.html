@@ -56,6 +56,7 @@
               {% endif %}
             {% endfor %}
           {% endif %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'accounts_profile' %}">Moje konto</a></li>
           <li class="nav-item">
             <form action="{% url 'logout' %}" method="post" style="display:inline;">
               {% csrf_token %}
@@ -133,10 +134,28 @@
       </div>
     {% endif %}
 
+    <!-- 🔸 Materiały dopasowane przez AI -->
+    {% if evidences %}
+      <div class="section-title">🎯 Materiały dopasowane przez AI</div>
+      {% for e in evidences %}
+        <div class="border rounded p-3 mb-3 bg-white shadow-sm">
+          <p><strong>Status dopasowania:</strong> {{ e.get_status_display }} ({{ e.match_confidence|floatformat:1 }}%)</p>
+          <p><strong>Wykryte tablice:</strong> {{ e.detected_plates_json }}</p>
+          {% if e.photo %}
+            <img src="{{ e.photo.url }}" class="img-fluid rounded mb-2" style="max-width:400px;">
+          {% endif %}
+          {% if e.video %}
+            <video controls class="rounded shadow-sm" style="max-width:400px;">
+              <source src="{{ e.video.url }}" type="video/mp4">
+            </video>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% endif %}
+
     <!-- 🔸 Przyciski akcji -->
     <div class="mt-4 d-flex justify-content-between">
       <a href="{% url 'my_reports' %}" class="btn btn-secondary">← Powrót</a>
-
       {% if report.status == "NEW" %}
         <a href="{% url 'report_edit' report.id %}" class="btn btn-warning">Edytuj zgłoszenie</a>
       {% endif %}

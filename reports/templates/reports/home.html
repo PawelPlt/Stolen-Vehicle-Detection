@@ -71,6 +71,12 @@
             {% endif %}
           {% endfor %}
 
+          {% if user.is_superuser %}
+            <li class="nav-item"><a class="nav-link" href="/admin/">Panel administracyjny</a></li>
+          {% endif %}
+
+          <li class="nav-item"><a class="nav-link" href="{% url 'accounts_profile' %}">Moje konto</a></li>
+
           <li class="nav-item">
             <form action="{% url 'logout' %}" method="post" style="display:inline;">
               {% csrf_token %}

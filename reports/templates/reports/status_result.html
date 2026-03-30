@@ -64,6 +64,8 @@
               {% endif %}
             {% endfor %}
           {% endif %}
+            <li class="nav-item"><a class="nav-link" href="{% url 'accounts_profile' %}">Moje konto</a></li>
+
           <li class="nav-item">
             <form action="{% url 'logout' %}" method="post" style="display:inline;">
               {% csrf_token %}
@@ -126,8 +128,8 @@
   {% endif %}
 
   <div class="text-center mt-4">
-    <a href="{% url 'status_lookup' %}" class="btn btn-outline-primary me-2">🔍 Sprawdź inne zgłoszenie</a>
-    <a href="/" class="btn btn-secondary">🏠 Strona główna</a>
+    <a href="{% url 'status_lookup' %}" class="btn btn-outline-primary me-2">Sprawdź inne zgłoszenie</a>
+    <a href="/" class="btn btn-secondary">Strona główna</a>
   </div>
 </div>
 
